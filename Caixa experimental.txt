@@ -1,0 +1,133 @@
+exemplo de caixa simples
+apenas para fins de teste de dificuldade do projeto em java
+
+import javafx.application.Application;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
+
+import org.firebirdsql.jdbc.FBDataSource;
+
+import java.sql.*;
+
+public class ModernCaixa extends Application {
+    private TableView<Product> productTable;
+    private TextField quantityField;
+    private Label totalLabel;
+    private double total = 0.0;
+
+    @Override
+    public void start(Stage primaryStage) {
+        // Configuração da interface gráfica basica
+        BorderPane root = new BorderPane();
+
+        // Tabela de produtos nome ficticio
+        productTable = new TableView<>();
+        productTable.setItems(getProducts());
+        productTable.getColumns().addAll(
+                createColumn("Nome", "name"),
+                createColumn("Preço", "price")
+        );
+
+        // Painel de controle do cx
+        VBox controlPanel = new VBox(10);
+        controlPanel.setPadding(new Insets(10));
+
+        HBox quantityBox = new HBox(10);
+        quantityBox.getChildren().addAll(new Label("Quantidade:"), quantityField = new TextField());
+
+        Button addButton = new Button("Adicionar");
+        addButton.setOnAction(e -> addToCart());
+
+        totalLabel = new Label("Total: R$ 0.00");
+
+        controlPanel.getChildren().addAll(quantityBox, addButton, totalLabel);
+
+        root.setCenter(productTable);
+        root.setRight(controlPanel);
+
+        Scene scene = new Scene(root, 800, 600);
+        primaryStage.setScene(scene);
+        primaryStage.setTitle("Caixa Moderno");
+        primaryStage.show();
+    }
+
+    private TableColumn<Product, String> createColumn(String title, String property) {
+        TableColumn<Product, String> column = new TableColumn<>(title);
+        column.setCellValueFactory(new PropertyValueFactory<>(property));
+        return column;
+    }
+
+    private void addToCart() {
+        Product selectedProduct = productTable.getSelectionModel().getSelectedItem();
+        if (selectedProduct != null) {
+            int quantity = Integer.parseInt(quantityField.getText());
+            total += selectedProduct.getPrice() * quantity;
+            totalLabel.setText(String.format("Total: R$ %.2f", total));
+            quantityField.clear();
+        }
+    }
+
+    private ObservableList<Product> getProducts() {
+        ObservableList<Product> products = FXCollections.observableArrayList();
+
+        try {
+            FBDataSource dataSource = new FBDataSource();
+            dataSource.setServerName("localhost");
+            dataSource.setDatabaseName("caixa.fdb");
+            dataSource.setUser("usuario");
+            dataSource.setPassword("senha");
+
+            try (Connection connection = dataSource.getConnection()) {
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery("SELECT * FROM produtos");
+
+                while (resultSet.next()) {
+                    int id = resultSet.getInt("id");
+                    String name = resultSet.getString("nome");
+                    double price = resultSet.getDouble("preco");
+                    products.add(new Product(id, name, price));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return products;
+    }
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+
+    private static class Product {
+        private int id;
+        private String name;
+        private double price;
+
+        Product(int id, String name, double price) {
+            this.id = id;
+            this.name = name;
+            this.price = price;
+        }
+
+        public int getId() {
+            return id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public double getPrice() {
+            return price;
+        }
+    }
+}
